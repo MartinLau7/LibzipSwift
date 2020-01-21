@@ -88,6 +88,6 @@ When you want to undo the changes, you can add discardChanged: false to the clos
  
 ### License
  
-- LibzipSwift: [See LICENSE (MIT)] (https://github.com/MartinLau7/LibzipSwift/blob/master/LICENSE)
- 
-- Libzip: [See Libzip website] (https://libzip.org/license/)
+- LibzipSwift : [See LICENSE (MIT)](https://github.com/MartinLau7/LibzipSwift/blob/master/LICENSE)
+
+- Libzip: [See Libzip website](https://libzip.org/license/)

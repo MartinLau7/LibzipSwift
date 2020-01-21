@@ -264,13 +264,11 @@ public final class ZipEntry: ZipErrorHandler {
             }
         }
         
-        if FileManager.default.fileExists(atPath: path) {
-            if !overwrite {
-                return false
-            }
+        if FileManager.default.fileExists(atPath: path)  && !overwrite {
+            return false
         }
         if isDirectory {
-            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: nil)
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [FileAttributeKey.modificationDate: self.modificationDate])
             if let pg = closure {
                 if !pg(fileName, 1.0) {
                     return false
@@ -310,7 +308,6 @@ public final class ZipEntry: ZipErrorHandler {
                     fileHandler.write(data)
                 }
                 if let pg = closure {
-                    
                     let pn = Double(readSize) / Double(uncompressedSize)
                     if !pg(fileName, pn) {
                         return false
@@ -321,10 +318,8 @@ public final class ZipEntry: ZipErrorHandler {
                 return false
             }
             
-            let att: [FileAttributeKey : Any] = [
-                FileAttributeKey.posixPermissions: posixPermission,
-                FileAttributeKey.modificationDate: modificationDate
-                ]
+            let att: [FileAttributeKey : Any] = [FileAttributeKey.posixPermissions: posixPermission,
+                                                 FileAttributeKey.modificationDate: modificationDate]
             try FileManager.default.setAttributes(att, ofItemAtPath: path)
             return true
         }

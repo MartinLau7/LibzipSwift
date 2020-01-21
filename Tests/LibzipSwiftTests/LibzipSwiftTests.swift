@@ -4,6 +4,7 @@ import XCTest
 final class LibzipSwiftTests: XCTestCase {
     
     let baseDirectory = URL(fileURLWithPath: #file).deletingLastPathComponent().appendingPathComponent("TestData", isDirectory: true)
+    
     var docArchive: String {
         get {
             return baseDirectory.appendingPathComponent("doc_Archive.zip").path
@@ -29,12 +30,12 @@ final class LibzipSwiftTests: XCTestCase {
     }
     
     func testNewArchive() {
-        let newarchiveURL = baseDirectory.appendingPathComponent("new_Archive.zip")
+        let newarchiveURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("newArchive.zip")
         do {
             if FileManager.default.fileExists(atPath: newarchiveURL.path) {
                 try FileManager.default.removeItem(at: newarchiveURL)
             }
-            let archive = try ZipArchive(url: newarchiveURL, mode: [.create, .checkConsistency])
+            let archive = try ZipArchive.createZip(url: newarchiveURL)
             defer {
                 XCTAssertNoThrow(try archive.close())
             }
@@ -45,14 +46,19 @@ final class LibzipSwiftTests: XCTestCase {
             XCTAssertNoThrow(try archive.addFile(url: baseDirectory.appendingPathComponent("時間时间Time😀¹²①②.txt")) >= 0)
             XCTAssertNoThrow(try archive.addFile(url: baseDirectory.appendingPathComponent("時間时间Time😀¹²①②.txt"), entryName: "folder/時間时间Time😀¹²①②.txt") >= 0)
         } catch {
-             XCTAssert(false, error.localizedDescription)
+             XCTFail(error.localizedDescription)
         }
     }
     
     func testIsZipArchive() {
         let archives: [String] = [docArchive, winArchive, unixArchive, encryptArchive]
         for archive in archives {
-            XCTAssertEqual(ZipArchive.isZipArchive(path: URL(fileURLWithPath: archive)), true, "\(archive) this is not a zip archive file")
+            do {
+                let iszip = try ZipArchive.isZipArchive(at: URL(fileURLWithPath: archive))
+                XCTAssertEqual(iszip, true, "\(archive) is not a zip archive file")
+            } catch {
+                XCTFail("\(error.localizedDescription)")
+            }
         }
     }
     
@@ -62,7 +68,7 @@ final class LibzipSwiftTests: XCTestCase {
             docArchive: ["programmer.png", "繁體中文/時間/", "繁體中文/文本檔案.txt", "简体中文/新建文本文档.txt"],
             winArchive: ["programmer.png", "вｙe вｙЁəiεə.txt", "ㅂㄶㄵㅁㅀもぬに.txt", "简体中文/", "简体中文/新建文本文档.txt", "繁體中文/", "繁體中文/文本檔案.txt", "繁體中文/時間/"],
             unixArchive: ["test.png", "macOS/", "macOS/print.sh", "macOS/卍〆◈(*`ェ´*)/", "English🔣🅿️⌘/", "繁體简体 abc 123▦░▥▨▩┏◈〆卍/"],
-            encryptArchive: ["programmer.webp"]
+            encryptArchive: ["Test File C.m4a", "Test File A.txt", "Test File B.jpg"]
         ]
         for (archive, password) in archives {
             do {
@@ -85,7 +91,7 @@ final class LibzipSwiftTests: XCTestCase {
     }
     
     func testArchiveExtract() {
-        let archives = [docArchive: "", winArchive: "", unixArchive: "", encryptArchive: "libzip"]
+        let archives = [docArchive: "", winArchive: "", unixArchive: "", encryptArchive: "123"]
         for (archive, password) in archives {
             do {
                 let zipArchive = try ZipArchive(path: archive)
@@ -107,33 +113,47 @@ final class LibzipSwiftTests: XCTestCase {
     }
     
     func testUpdateEntry() {
-        
+        let tmp = "\(NSTemporaryDirectory())/libzipSwift/"
+        do {
+            try FileManager.default.copyItem(atPath: unixArchive, toPath: "\(tmp)/test.zip")
+            let zipArchive = try ZipArchive(path: "\(tmp)/test.zip")
+            let result = try zipArchive.addFile(file: "\(baseDirectory)/時間时间Time😀¹²①②.txt") >= 0
+            XCTAssert(result, "add file error")
+            try zipArchive.close()
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
     }
     
     func testRemoveEntry() {
-        
+        let tmp = "\(NSTemporaryDirectory())/libzipSwift/"
+        do {
+            if FileManager.default.fileExists(atPath: "\(tmp)/test.zip") {
+                try FileManager.default.removeItem(atPath: "\(tmp)/test.zip")
+            }
+            try FileManager.default.copyItem(atPath: unixArchive, toPath: "\(tmp)/test.zip")
+            let zipArchive = try ZipArchive(path: "\(tmp)/test.zip")
+            let entries = try zipArchive.getEntries()
+            XCTAssert(zipArchive.deleteEntry(entryName: entries.first!.fileName), "delete entry fail")
+            try zipArchive.close()
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
     }
     
     func testReameEntry() {
-        
-    }
-    
-    func testEncryptArchive() {
+        let tmp = "\(NSTemporaryDirectory())/libzipSwift/"
         do {
-            let archvies: [String] = [docArchive, winArchive, unixArchive]
-            for archive in archvies {
-                let zipArchive = try ZipArchive(path: archive)
-                defer {
-                    XCTAssertNoThrow(try zipArchive.close())
-                }
-                let extResult = try zipArchive.extractAll(to: FileManager.default.currentDirectoryPath, overwrite: true) { (entryName, progress) -> Bool in
-                    print("\(entryName) extracting...\(progress)")
-                    return true
-                }
-                XCTAssertEqual(extResult, true, zipArchive.error!.localizedDescription)
+            if FileManager.default.fileExists(atPath: "\(tmp)/test.zip") {
+                try FileManager.default.removeItem(atPath: "\(tmp)/test.zip")
             }
+            try FileManager.default.copyItem(atPath: unixArchive, toPath: "\(tmp)/test.zip")
+            let zipArchive = try ZipArchive(path: "\(tmp)/test.zip")
+            let entries = try zipArchive.getEntries()
+            XCTAssert(entries.first!.rename(name: "123.ppp"), "rename entry fail")
+            try zipArchive.close()
         } catch {
-            XCTAssert(false, error.localizedDescription)
+            XCTFail(error.localizedDescription)
         }
     }
     

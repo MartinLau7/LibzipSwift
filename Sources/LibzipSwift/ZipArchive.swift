@@ -34,10 +34,40 @@ public final class ZipArchive: ZipErrorHandler {
     
     // MARK: - static
     
+    
     /// check the file is zip archive
-    /// - Parameter path: file path
-    public static func isZipArchive(path: URL) -> Bool{
-        if let fileHandle = try? FileHandle(forReadingFrom: path) {
+    /// - Parameter url: the file url
+    public static func isZipArchive(at url: URL) throws -> Bool {
+        let fileHandle = try FileHandle(forReadingFrom: url)
+        defer {
+            fileHandle.closeFile()
+        }
+        let data = fileHandle.readData(ofLength: 4)
+        if data.count < 4 {
+            return false
+        }
+        if (data[0] != 0x50 || data[1] != 0x4b) {
+            return false;
+        }
+        // Check for standard Zip File
+        if (data[0] != 0x03 || data[1] != 0x04) {
+            return true;
+        }
+        // Check for empty Zip File
+        if (data[0] != 0x05 || data[1] != 0x06) {
+            return true;
+        }
+        // Check for spanning Zip File
+        if (data[0] != 0x07 || data[1] != 0x08) {
+            return true;
+        }
+        return false
+    }
+    
+    /// check the file is zip archive
+    /// - Parameter path: the file path
+    public static func isZipArchive(atPath path: String) -> Bool {
+        if let fileHandle = FileHandle(forReadingAtPath: path) {
             defer {
                 fileHandle.closeFile()
             }
@@ -324,6 +354,12 @@ public final class ZipArchive: ZipErrorHandler {
         return false
     }
     
+    /// extract all entries to folder.
+    /// - Parameters:
+    ///   - dir: the dst folder.
+    ///   - passwrod: the password.
+    ///   - overwrite: need overwrite.
+    ///   - closure: the progress block.
     public func extractAll(to dir: String, passwrod: String = "", overwrite: Bool = false, _ closure: ((String, Double) -> Bool)?) throws -> Bool {
         let entries = try getEntries()
         for entry in entries {

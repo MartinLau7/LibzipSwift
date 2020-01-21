@@ -11,7 +11,7 @@ let package = Package(
         .macOS(.v10_12),
     ],
     products: [
-        .library(name: "libzip", targets: ["libzip"]),
+        .library(name: "libzip", type: .static, targets: ["libzip"]),
         .library(name: "LibzipSwift", targets: ["LibzipSwift"]),
     ],
     targets: [

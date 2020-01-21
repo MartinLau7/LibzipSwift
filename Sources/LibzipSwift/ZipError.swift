@@ -9,7 +9,6 @@ public enum ZipError: Error {
     case unsupportedURL
     case fileNotExist
     case internalInconsistency
-//    case
 }
 
 extension ZipError: LocalizedError {

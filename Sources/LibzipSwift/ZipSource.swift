@@ -36,7 +36,7 @@ class ZipSource: ZipErrorHandler {
         })
     }
     
-    init(url: URL, start: Int = 0, length: Int = -1) throws {
+    init(at url: URL, start: Int = 0, length: Int = -1) throws {
         self.sourcePointer = try url.withUnsafeFileSystemRepresentation { filename in
             if let filename = filename {
                 var error = zip_error_t()

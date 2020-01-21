@@ -37,6 +37,7 @@ public struct EncryptionMethod: RawRepresentable {
     
     public static let none          = EncryptionMethod(rawValue: UInt16(ZIP_EM_NONE))
     public static let tradpkware    = EncryptionMethod(rawValue: UInt16(ZIP_EM_TRAD_PKWARE))
+    
     public static let aes128        = EncryptionMethod(rawValue: UInt16(ZIP_EM_AES_128))
     public static let aes192        = EncryptionMethod(rawValue: UInt16(ZIP_EM_AES_192))
     public static let aes256        = EncryptionMethod(rawValue: UInt16(ZIP_EM_AES_256))
