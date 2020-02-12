@@ -101,10 +101,10 @@ final class LibzipSwiftTests: XCTestCase {
                 if !password.isEmpty {
                     try zipArchive.setDefaultPassword(password)
                 }
-                let extResult = try zipArchive.extractAll(to: FileManager.default.currentDirectoryPath, overwrite: true) { (entryName, progress) -> Bool in
-                    print("\(entryName) extracting...\(progress)")
+                let extResult = try zipArchive.extractAll(to: FileManager.default.currentDirectoryPath, overwrite: true, { (entryName, entryProgress, totalProgress) -> Bool in
+                    print("\(entryName) extracting...\(totalProgress)")
                     return true
-                }
+                })
                 XCTAssertEqual(extResult, true, zipArchive.error!.localizedDescription)
             } catch {
                 XCTAssert(false, error.localizedDescription)

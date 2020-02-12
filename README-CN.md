@@ -21,7 +21,7 @@ Once you have your Swift package set up, adding LibzipSwift as a dependency is a
 ```swift
 
 dependencies: [
-    .package(url: "https://github.com/MartinLau7/LibzipSwift.git", from: "0.1")
+.package(url: "https://github.com/MartinLau7/LibzipSwift.git", from: "0.1")
 ]
 
 ```
@@ -32,19 +32,19 @@ dependencies: [
 
 ```swift
 do {
-    let archive = try ZipArchive(url: newarchiveURL)
-    defer {
-        try archive.close()
-    }
-    if let entries = try? zipArchive.getEntries() {
-        // 遍历和操作  entries
-    }
-    // 你也可以对 zipArchive进行修改和新增
-    ...
+let archive = try ZipArchive(url: newarchiveURL)
+defer {
+try archive.close()
+}
+if let entries = try? zipArchive.getEntries() {
+// 遍历和操作  entries
+}
+// 你也可以对 zipArchive进行修改和新增
+...
 
 } catch {
-     // Handle errors here
-    print("\(Handle errors here)")
+// Handle errors here
+print("\(Handle errors here)")
 }
 ```
 
@@ -52,15 +52,15 @@ do {
 
 ```swift
 do {
-    let archive = try ZipArchive(url: newarchiveURL, mode: [.create, .checkConsistency])
-    defer {
-        try archive.close()
-    }
-    try archive.addDirectory(dirName: "the folder")
-    try archive.addFile(path: "/xx/xx/you.file", entryName: "entry name is Optional param") >= 0)
+let archive = try ZipArchive(url: newarchiveURL, mode: [.create, .checkConsistency])
+defer {
+try archive.close()
+}
+try archive.addDirectory(dirName: "the folder")
+try archive.addFile(path: "/xx/xx/you.file", entryName: "entry name is Optional param") >= 0)
 } catch {
-     // Handle errors here
-    print("\(Handle errors here)")
+// Handle errors here
+print("\(Handle errors here)")
 }
 ```
 
@@ -68,12 +68,12 @@ do {
 `try archive.close(discardChanged: false)`
 
 ### 问题和建议
- 
- 如果你有问题，可以及时提出或做出对这个项目的代码贡献，感谢
- 
+
+如果你有问题，可以及时提出或做出对这个项目的代码贡献，感谢
+
 ### TODO
- 
-- [ ] 完整的压缩函式
+
+- [x] ~~完整的压缩函式~~
 - [ ] 对iOS 支持的完善
 - [ ] 对 unix 上的zip 归档保留更多属性
 - [ ] 完善单元测试

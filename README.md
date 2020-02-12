@@ -70,12 +70,13 @@ When you want to undo the changes, you can add discardChanged: false to the clos
 `try archive.close(discardChanged: false)`
 
 ### Question & Suggestions
- 
- If you have questions, you can promptly make or contribute to the code of this project, thanks
- 
+
+**If you have questions, you can promptly make or contribute to the code of this project, thanks**
+
+
 ### TODO
- 
-- [ ] Complete compression function
+
+- [x] ~~Complete compression function~~
 
 - [ ] Improved iOS support
 
@@ -84,10 +85,10 @@ When you want to undo the changes, you can add discardChanged: false to the clos
 - [ ] Improve unit testing
 
 - [ ] more
- 
- 
+
+
 ### License
- 
+
 - LibzipSwift : [See LICENSE (MIT)](https://github.com/MartinLau7/LibzipSwift/blob/master/LICENSE)
 
 - Libzip: [See Libzip website](https://libzip.org/license/)

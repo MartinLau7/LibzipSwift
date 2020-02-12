@@ -360,14 +360,23 @@ public final class ZipArchive: ZipErrorHandler {
     ///   - passwrod: the password.
     ///   - overwrite: need overwrite.
     ///   - closure: the progress block.
-    public func extractAll(to dir: String, passwrod: String = "", overwrite: Bool = false, _ closure: ((String, Double) -> Bool)?) throws -> Bool {
+    public func extractAll(to dir: String, passwrod: String = "", overwrite: Bool = false, _ closure: ((_ entryName: String, _ entryProgress: Double, _ totalProgress: Double) -> Bool)?) throws -> Bool {
         let entries = try getEntries()
-        for entry in entries {
+        for (idx, entry) in entries.enumerated() {
+            let totalProgress = Double(idx) / Double(entries.count)
             let extPath = URL(fileURLWithPath: dir).appendingPathComponent(entry.fileName).path
-            let result = try entry.extract(to: extPath, password: passwrod, overwrite: overwrite, closure)
+            let result = try entry.extract(to: extPath, password: passwrod, overwrite: overwrite) { (entryName, entryProgress) -> Bool in
+                if let cb = closure {
+                    return cb(entryName, entryProgress, totalProgress)
+                }
+                return true
+            }
             if !result {
                 return result
             }
+        }
+        if let cb = closure {
+            _ = cb("", 0, 1.0)
         }
         return true
     }
