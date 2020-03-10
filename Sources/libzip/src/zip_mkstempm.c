@@ -1,6 +1,6 @@
 /*
-  zip_memdup.c -- internal zip function, "strdup" with len
-  Copyright (C) 1999-2019 Dieter Baron and Thomas Klausner
+  zip_mkstempm.c -- mkstemp replacement that accepts a mode argument
+  Copyright (C) 2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -31,26 +31,64 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <sys/stat.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "zipint.h"
 
+/*
+ * create temporary file with same permissions as previous one;
+ * or default permissions if there is no previous file
+ */
+int
+_zip_mkstempm(char *path, int mode) {
+    int fd;
+    char *start, *end, *xs;
 
-void *
-_zip_memdup(const void *mem, size_t len, zip_error_t *error) {
-    void *ret;
+    int xcnt = 0;
 
-    if (len == 0)
-	return NULL;
-
-    ret = malloc(len);
-    if (!ret) {
-	zip_error_set(error, ZIP_ER_MEMORY, 0);
-	return NULL;
+    end = path + strlen(path);
+    start = end - 1;
+    while (start >= path && *start == 'X') {
+	xcnt++;
+	start--;
     }
 
-    memcpy(ret, mem, len);
+    if (xcnt == 0) {
+	errno = EINVAL;
+	return -1;
+    }
 
-    return ret;
+    start++;
+
+    for (;;) {
+        zip_uint32_t value = zip_random_uint32();
+
+	xs = start;
+
+	while (xs < end) {
+            char digit = value % 36;
+            if (digit < 10) {
+                *(xs++) = digit + '0';
+            }
+            else {
+                *(xs++) = digit - 10 + 'a';
+            }
+	    value /= 36;
+	}
+
+	if ((fd = open(path, O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC, mode == -1 ? 0666 : (mode_t)mode)) >= 0) {
+	    if (mode != -1) {
+		/* open() honors umask(), which we don't want in this case */
+		(void)chmod(path, (mode_t)mode);
+	    }
+	    return fd;
+	}
+	if (errno != EEXIST) {
+	    return -1;
+	}
+    }
 }

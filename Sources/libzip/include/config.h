@@ -152,7 +152,7 @@
 #define PACKAGE_NAME "libzip"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libzip 1.0.1a"
+#define PACKAGE_STRING "libzip 1.6.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libzip"
@@ -161,7 +161,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.3.1a"
+#define PACKAGE_VERSION "1.6.1"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4

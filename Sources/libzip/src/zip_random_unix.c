@@ -1,6 +1,6 @@
 /*
-  zip_memdup.c -- internal zip function, "strdup" with len
-  Copyright (C) 1999-2019 Dieter Baron and Thomas Klausner
+  zip_random_unix.c -- fill the user's buffer with random stuff (Unix version)
+  Copyright (C) 2016-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -31,26 +31,75 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <string.h>
-
 #include "zipint.h"
 
+#ifdef HAVE_CRYPTO
+#include "zip_crypto.h"
+#endif
 
-void *
-_zip_memdup(const void *mem, size_t len, zip_error_t *error) {
-    void *ret;
 
-    if (len == 0)
-	return NULL;
+#ifdef HAVE_ARC4RANDOM
 
-    ret = malloc(len);
-    if (!ret) {
-	zip_error_set(error, ZIP_ER_MEMORY, 0);
-	return NULL;
+#include <stdlib.h>
+
+#ifndef HAVE_SECURE_RANDOM
+ZIP_EXTERN bool
+zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
+    arc4random_buf(buffer, length);
+    return true;
+}
+#endif
+
+#ifndef HAVE_RANDOM_UINT32
+zip_uint32_t
+zip_random_uint32(void) {
+    return arc4random();
+}
+#endif
+
+#else /* HAVE_ARC4RANDOM */
+
+#ifndef HAVE_SECURE_RANDOM
+#include <fcntl.h>
+#include <unistd.h>
+
+ZIP_EXTERN bool
+zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
+    int fd;
+
+    if ((fd = open("/dev/urandom", O_RDONLY)) < 0) {
+	return false;
     }
 
-    memcpy(ret, mem, len);
+    if (read(fd, buffer, length) != length) {
+	close(fd);
+	return false;
+    }
 
-    return ret;
+    close(fd);
+    return true;
 }
+#endif
+
+#ifndef HAVE_RANDOM_UINT32
+#include <stdlib.h>
+
+zip_uint32_t
+zip_random_uint32(void) {
+    static bool seeded = false;
+    
+    zip_uint32_t value;
+    
+    if (zip_secure_random((zip_uint8_t *)&value, sizeof(value))) {
+        return value;
+    }
+    
+    if (!seeded) {
+        srandom((unsigned int)time(NULL));
+    }
+    
+    return (zip_uint32_t)random();
+}
+#endif
+
+#endif /* HAVE_ARC4RANDOM */
