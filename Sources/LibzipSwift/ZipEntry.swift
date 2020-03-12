@@ -18,6 +18,8 @@ public final class ZipEntry: ZipErrorHandler {
     
     public let fileName: String
     
+    private (set) public var rawFileNameData: Data
+    
     public let isDirectory: Bool
     
     public let modificationDate: Date
@@ -76,7 +78,7 @@ public final class ZipEntry: ZipErrorHandler {
     }
     
     private static func itemFileType(_ attributes: UInt32) -> FileType {
-        return FileType(rawValue: (S_IFMT & UInt16((attributes >> 16))))
+        return FileType(rawValue: (S_IFMT & mode_t((attributes >> 16))))
     }
     
     private static func itemIsDOSDirectory(_ attributes: UInt32) -> Bool {
@@ -90,9 +92,9 @@ public final class ZipEntry: ZipErrorHandler {
         return itemFileType(externalAttributes.attributes) == .DIR
     }
     
-    private static func itemPermissions(_ attributes: UInt32) -> UInt16 {
+    private static func itemPermissions(_ attributes: UInt32) -> mode_t {
         let permissionsMask = S_IRWXU | S_IRWXG | S_IRWXO;
-        return permissionsMask & UInt16(attributes >> 16)
+        return permissionsMask & mode_t(attributes >> 16)
     }
     
     private static func itemIsSymbolicLink(_ attributes: UInt32) -> Bool {
@@ -128,6 +130,7 @@ public final class ZipEntry: ZipErrorHandler {
         var isSysLink = false
         var name = String(cString: stat.name!, encoding: .utf8)
         let zipOS = self.externalAttributes.operatingSystem
+        self.rawFileNameData = (name!.data(using: .utf8))!
         if zipOS == .Dos || zipOS == .WINDOWS_NTFS {
             // 自动转换档案名编码
             if let zipFN = zip_get_name(archive.archivePointer, index, ZipEncoding.raw.rawValue) {
@@ -136,12 +139,18 @@ public final class ZipEntry: ZipErrorHandler {
                     return strlen($0)
                 })
                 let buff = UnsafeBufferPointer(start: zipFN, count: nameLen)
-                let sourceData = Data(buffer: buff)
+                self.rawFileNameData = Data(buffer: buff)
+                #if os(macOS)
                 var convertedString: NSString?
-                _ = NSString.stringEncoding(for: sourceData, encodingOptions: nil, convertedString: &convertedString, usedLossyConversion: nil)
+                _ = NSString.stringEncoding(for: rawFileNameData, encodingOptions: nil, convertedString: &convertedString, usedLossyConversion: nil)
                 if let cs = convertedString {
                     name =  cs as String
                 }
+                #else
+                if let cs = String(data: rawFileNameData, encoding: .utf8) {
+                    name = cs
+                }
+                #endif
             }
         }
         if zipOS == .UNIX || zipOS == .OSX || zipOS == .MACINTOSH {
@@ -303,10 +312,8 @@ public final class ZipEntry: ZipErrorHandler {
                     break
                 }
                 readSize += readNum
-                autoreleasepool {
-                    let data = Data(bytes: buffer, count: Int(readNum))
-                    fileHandler.write(data)
-                }
+                let data = Data(bytes: buffer, count: Int(readNum))
+                fileHandler.write(data)
                 if let pg = closure {
                     let pn = Double(readSize) / Double(uncompressedSize)
                     if !pg(fileName, pn) {

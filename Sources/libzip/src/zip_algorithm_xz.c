@@ -1,5 +1,6 @@
 /*
-  zip_algorithm_bzip2.c -- bzip2 (de)compression routines
+  zip_algorithm_xz.c      -- XZ (de)compression routines
+  Bazed on zip_algorithm_deflate.c -- deflate (de)compression routines
   Copyright (C) 2017-2019 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
@@ -33,105 +34,94 @@
 
 #include "zipint.h"
 
-#include <bzlib.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <lzma.h>
 
 struct ctx {
     zip_error_t *error;
     bool compress;
     int compression_flags;
     bool end_of_input;
-    bz_stream zstr;
+    lzma_stream zstr;
+    zip_uint16_t method;
 };
 
 
 static void *
-allocate(bool compress, int compression_flags, zip_error_t *error) {
+allocate(bool compress, int compression_flags, zip_error_t *error, zip_uint16_t method) {
     struct ctx *ctx;
 
     if ((ctx = (struct ctx *)malloc(sizeof(*ctx))) == NULL) {
+	zip_error_set(error, ZIP_ET_SYS, errno);
 	return NULL;
     }
 
     ctx->error = error;
     ctx->compress = compress;
     ctx->compression_flags = compression_flags;
-    if (ctx->compression_flags < 1 || ctx->compression_flags > 9) {
-	ctx->compression_flags = 9;
-    }
+    ctx->compression_flags |= LZMA_PRESET_EXTREME;
     ctx->end_of_input = false;
-
-    ctx->zstr.bzalloc = NULL;
-    ctx->zstr.bzfree = NULL;
-    ctx->zstr.opaque = NULL;
-
+    memset(&ctx->zstr, 0, sizeof(ctx->zstr));
+    ctx->method = method;
     return ctx;
 }
 
 
 static void *
 compress_allocate(zip_uint16_t method, int compression_flags, zip_error_t *error) {
-    return allocate(true, compression_flags, error);
+    return allocate(true, compression_flags, error, method);
 }
 
 
 static void *
 decompress_allocate(zip_uint16_t method, int compression_flags, zip_error_t *error) {
-    return allocate(false, compression_flags, error);
+    return allocate(false, compression_flags, error, method);
 }
 
 
 static void
 deallocate(void *ud) {
     struct ctx *ctx = (struct ctx *)ud;
-
     free(ctx);
 }
 
 
 static int
 compression_flags(void *ud) {
+    /* struct ctx *ctx = (struct ctx *)ud; */
     return 0;
 }
 
-
 static int
-map_error(int ret) {
+map_error(lzma_ret ret) {
     switch (ret) {
-    case BZ_FINISH_OK:
-    case BZ_FLUSH_OK:
-    case BZ_OK:
-    case BZ_RUN_OK:
-    case BZ_STREAM_END:
-	return ZIP_ER_OK;
+      case LZMA_UNSUPPORTED_CHECK:
+        return ZIP_ER_COMPRESSED_DATA;
 
-    case BZ_DATA_ERROR:
-    case BZ_DATA_ERROR_MAGIC:
-    case BZ_UNEXPECTED_EOF:
-	return ZIP_ER_COMPRESSED_DATA;
+      case LZMA_MEM_ERROR:
+        return ZIP_ER_MEMORY;
 
-    case BZ_MEM_ERROR:
-	return ZIP_ER_MEMORY;
+      case LZMA_OPTIONS_ERROR:
+        return ZIP_ER_INVAL;
 
-    case BZ_PARAM_ERROR:
-	return ZIP_ER_INVAL;
-
-    case BZ_CONFIG_ERROR: /* actually, bzip2 miscompiled */
-    case BZ_IO_ERROR:
-    case BZ_OUTBUFF_FULL:
-    case BZ_SEQUENCE_ERROR:
-	return ZIP_ER_INTERNAL;
-
-    default:
-	return ZIP_ER_INTERNAL;
+      default:
+        return ZIP_ER_INTERNAL;
     }
 }
+
 
 static bool
 start(void *ud) {
     struct ctx *ctx = (struct ctx *)ud;
-    int ret;
+    lzma_ret ret;
+
+    lzma_options_lzma opt_lzma;
+    lzma_lzma_preset(&opt_lzma, ctx->compression_flags);
+    lzma_filter filters[] = {
+      { .id = (ctx->method == ZIP_CM_LZMA ? LZMA_FILTER_LZMA1 : LZMA_FILTER_LZMA2), .options = &opt_lzma},
+      { .id = LZMA_VLI_UNKNOWN, .options = NULL },
+    };
 
     ctx->zstr.avail_in = 0;
     ctx->zstr.next_in = NULL;
@@ -139,15 +129,20 @@ start(void *ud) {
     ctx->zstr.next_out = NULL;
 
     if (ctx->compress) {
-	ret = BZ2_bzCompressInit(&ctx->zstr, ctx->compression_flags, 0, 30);
-    }
-    else {
-	ret = BZ2_bzDecompressInit(&ctx->zstr, 0, 0);
+      if (ctx->method == ZIP_CM_LZMA)
+        ret = lzma_alone_encoder(&ctx->zstr, filters[0].options);
+      else
+        ret = lzma_stream_encoder(&ctx->zstr, filters, LZMA_CHECK_CRC64);
+    } else {
+     if (ctx->method == ZIP_CM_LZMA)
+       ret = lzma_alone_decoder(&ctx->zstr, UINT64_MAX);
+     else
+      ret = lzma_stream_decoder(&ctx->zstr, UINT64_MAX, LZMA_CONCATENATED);
     }
 
-    if (ret != BZ_OK) {
-	zip_error_set(ctx->error, map_error(ret), 0);
-	return false;
+    if (ret != LZMA_OK) {
+      zip_error_set(ctx->error, map_error(ret), 0);
+      return false;
     }
 
     return true;
@@ -157,20 +152,8 @@ start(void *ud) {
 static bool
 end(void *ud) {
     struct ctx *ctx = (struct ctx *)ud;
-    int err;
 
-    if (ctx->compress) {
-	err = BZ2_bzCompressEnd(&ctx->zstr);
-    }
-    else {
-	err = BZ2_bzDecompressEnd(&ctx->zstr);
-    }
-
-    if (err != BZ_OK) {
-	zip_error_set(ctx->error, map_error(err), 0);
-	return false;
-    }
-
+    lzma_end(&ctx->zstr);
     return true;
 }
 
@@ -180,12 +163,12 @@ input(void *ud, zip_uint8_t *data, zip_uint64_t length) {
     struct ctx *ctx = (struct ctx *)ud;
 
     if (length > UINT_MAX || ctx->zstr.avail_in > 0) {
-	zip_error_set(ctx->error, ZIP_ER_INVAL, 0);
-	return false;
+      zip_error_set(ctx->error, ZIP_ER_INVAL, 0);
+      return false;
     }
 
-    ctx->zstr.avail_in = (unsigned int)length;
-    ctx->zstr.next_in = (char *)data;
+    ctx->zstr.avail_in = (uInt)length;
+    ctx->zstr.next_in = (Bytef *)data;
 
     return true;
 }
@@ -202,40 +185,27 @@ end_of_input(void *ud) {
 static zip_compression_status_t
 process(void *ud, zip_uint8_t *data, zip_uint64_t *length) {
     struct ctx *ctx = (struct ctx *)ud;
+    lzma_ret ret;
 
-    int ret;
+    ctx->zstr.avail_out = (uInt)ZIP_MIN(UINT_MAX, *length);
+    ctx->zstr.next_out = (Bytef *)data;
 
-    if (ctx->zstr.avail_in == 0 && !ctx->end_of_input) {
-	*length = 0;
-	return ZIP_COMPRESSION_NEED_DATA;
-    }
-
-    ctx->zstr.avail_out = (unsigned int)ZIP_MIN(UINT_MAX, *length);
-    ctx->zstr.next_out = (char *)data;
-
-    if (ctx->compress) {
-	ret = BZ2_bzCompress(&ctx->zstr, ctx->end_of_input ? BZ_FINISH : BZ_RUN);
-    }
-    else {
-	ret = BZ2_bzDecompress(&ctx->zstr);
-    }
-
+    ret = lzma_code(&ctx->zstr, ctx->end_of_input ? LZMA_FINISH : LZMA_RUN);
     *length = *length - ctx->zstr.avail_out;
 
     switch (ret) {
-    case BZ_FINISH_OK: /* compression */
-	return ZIP_COMPRESSION_OK;
+    case LZMA_OK:
+        return ZIP_COMPRESSION_OK;
 
-    case BZ_OK:     /* decompression */
-    case BZ_RUN_OK: /* compression */
+    case LZMA_STREAM_END:
+        return ZIP_COMPRESSION_END;
+
+    case LZMA_BUF_ERROR:
 	if (ctx->zstr.avail_in == 0) {
 	    return ZIP_COMPRESSION_NEED_DATA;
 	}
-	return ZIP_COMPRESSION_OK;
 
-    case BZ_STREAM_END:
-	return ZIP_COMPRESSION_END;
-
+	/* fallthrough */
     default:
 	zip_error_set(ctx->error, map_error(ret), 0);
 	return ZIP_COMPRESSION_ERROR;
@@ -244,7 +214,7 @@ process(void *ud, zip_uint8_t *data, zip_uint64_t *length) {
 
 /* clang-format off */
 
-zip_compression_algorithm_t zip_algorithm_bzip2_compress = {
+zip_compression_algorithm_t zip_algorithm_xz_compress = {
     compress_allocate,
     deallocate,
     compression_flags,
@@ -256,7 +226,7 @@ zip_compression_algorithm_t zip_algorithm_bzip2_compress = {
 };
 
 
-zip_compression_algorithm_t zip_algorithm_bzip2_decompress = {
+zip_compression_algorithm_t zip_algorithm_xz_decompress = {
     decompress_allocate,
     deallocate,
     compression_flags,

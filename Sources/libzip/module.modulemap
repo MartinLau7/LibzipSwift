@@ -1,0 +1,14 @@
+//
+//  File.swift
+//  
+//
+//  Created by MartinLau on 12/3/2020.
+//
+
+
+module libzip [system] {
+    header "shim.h"
+    link "z"
+    export *
+}
+
