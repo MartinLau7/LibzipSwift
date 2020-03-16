@@ -27,7 +27,7 @@ let excludes = [
 #else
 let excludes = [
     // Exclude BZ2 compression
-    "src/zip_algorithm_bzip2.c",
+//    "src/zip_algorithm_bzip2.c",
     "src/zip_algorithm_xz.c",
     
     // Exclude non-CommonCrypto encryption
@@ -41,23 +41,23 @@ let excludes = [
     "src/zip_random_uwp.c",
     
     // Exclude Windows utilities
-    "src/zip_source_winzip_aes_decode.c",
-    "src/zip_source_winzip_aes_encode.c",
+//    "src/zip_source_winzip_aes_decode.c",
+//    "src/zip_source_winzip_aes_encode.c",
     "src/zip_source_win32handle.c",
     "src/zip_source_win32utf8.c",
     "src/zip_source_win32a.c",
     "src/zip_source_win32w.c",
-    "src/zip_winzip_aes.c"
+//    "src/zip_winzip_aes.c"
 ]
 #endif
 
 let package = Package(
     name: "LibzipSwift",
-    platforms: [
-        .iOS(.v11),
-        .tvOS(.v11),
-        .macOS(.v10_12),
-    ],
+//    platforms: [
+//        .iOS(.v11),
+//        .tvOS(.v11),
+//        .macOS(.v10_12),
+//    ],
     products: [
         .library(name: "LibzipSwift", targets: ["LibzipSwift"]),
     ],

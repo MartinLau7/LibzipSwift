@@ -45,6 +45,9 @@ final class LibzipSwiftTests: XCTestCase {
             XCTAssertNoThrow(try archive.addDirectory(dirName: "あいかきサコセゅゑшнлкюяыь") >= 0)
             XCTAssertNoThrow(try archive.addFile(url: baseDirectory.appendingPathComponent("時間时间Time😀¹²①②.txt")) >= 0)
             XCTAssertNoThrow(try archive.addFile(url: baseDirectory.appendingPathComponent("時間时间Time😀¹²①②.txt"), entryName: "folder/時間时间Time😀¹²①②.txt") >= 0)
+            archive.registerProgressCallback { pg in
+                print("==> \(pg)%")
+            }
         } catch {
              XCTFail(error.localizedDescription)
         }
