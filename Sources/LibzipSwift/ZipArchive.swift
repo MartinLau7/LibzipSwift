@@ -11,9 +11,7 @@ import Foundation
 public final class ZipArchive: ZipErrorHandler {
     
     internal var archivePointer: OpaquePointer!
-    internal var callback: (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UInt64, ZipSourceCommand) -> Int64 {
-        return streamCallback
-    }
+    internal var callback: ((Double)->())? = nil
     
     // MARK: - struct
     public struct LocateFlags: OptionSet {
@@ -21,7 +19,7 @@ public final class ZipArchive: ZipErrorHandler {
         public init(rawValue: UInt32) {
             self.rawValue = rawValue
         }
-        public static let none = LocateFlags(rawValue: 0)
+        public static let none = LocateFlags([])
         public static let caseInsensitive = LocateFlags(rawValue: ZIP_FL_NOCASE)
         public static let ignoreDirectory = LocateFlags(rawValue: ZIP_FL_NODIR)
     }
@@ -111,12 +109,12 @@ public final class ZipArchive: ZipErrorHandler {
     }
     
     public init(path: String, mode: [OpenMode] = [.none]) throws {
-        if !mode.contains { mode -> Bool in
+        if !mode.contains(where: { mode -> Bool in
             if mode == .create {
                 return true
             }
             return false
-            } {
+        }) {
             if !FileManager.default.fileExists(atPath: path) {
                 throw ZipError.fileNotExist;
             }
@@ -133,15 +131,16 @@ public final class ZipArchive: ZipErrorHandler {
         
         try checkZipError(status)
         self.archivePointer = try handle.unwrapped()
+        registerProgressCallback()
     }
     
     public init(url: URL, mode: [OpenMode] = [.none]) throws {
-        if !mode.contains { mode -> Bool in
+        if !mode.contains(where: { mode -> Bool in
             if mode == .create {
                 return true
             }
             return false
-            } {
+        }) {
             if !FileManager.default.fileExists(atPath: url.path) {
                 throw ZipError.fileNotExist;
             }
@@ -162,6 +161,7 @@ public final class ZipArchive: ZipErrorHandler {
         
         try checkZipError(status)
         self.archivePointer = try handle.unwrapped()
+        registerProgressCallback()
     }
     
     public func close(discardChanged: Bool = false) throws {
@@ -395,49 +395,15 @@ public final class ZipArchive: ZipErrorHandler {
     
     // MARK: - callback
     
-    // TODO: 该函式尚未完成
-    internal func streamCallback(state: UnsafeMutableRawPointer?, data: UnsafeMutableRawPointer?, length: UInt64, sourceCommand: ZipSourceCommand) -> Int64 {
-//        var buffer: [UInt8]
-        
-        switch sourceCommand {
-            case .Stat:
-                break
-            case .Tell:
-                break
-            case .TellWrite:
-                break
-            case .Write:
-                break
-            case .SeekWrite:
-                break
-            case .Seek:
-                break
-            case .CommitWrite:
-                break
-            case .Read:
-                break
-            case .BeginWrite:
-                break
-            case .Open:
-                break
-            case .Close:
-                break
-            case .Free:
-                break
-            case .Supports:
-                break
-            default:
-                break;
-        }
-        return 0
+    private func registerProgressCallback() {
+        let userData = UnsafeMutableRawPointer(mutating: Unmanaged<ZipArchive>.passUnretained(self).toOpaque())
+        zip_register_progress_callback_with_state(archivePointer, 0.1, { (archivePtr, progress, udPtr) in
+            if let udPtr = udPtr {
+                let archiveUd = Unmanaged<ZipArchive>.fromOpaque(udPtr).takeUnretainedValue()
+                archiveUd.callback?(progress)
+            }
+        }, nil, userData)
     }
-    
-    internal func registerProgressCallback(callback: @escaping (Double)->()) {
-        zip_register_progress_callback(archivePointer) { progress in
-            
-        }
-    }
-    
 }
 
 
