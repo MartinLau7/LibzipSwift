@@ -10,8 +10,9 @@ import Foundation
 
 public final class ZipArchive: ZipErrorHandler {
     
+    private var compressionCallback: ((Double)->())? = nil
+    
     internal var archivePointer: OpaquePointer!
-    internal var callback: ((Double)->())? = nil
     
     // MARK: - struct
     public struct LocateFlags: OptionSet {
@@ -131,7 +132,6 @@ public final class ZipArchive: ZipErrorHandler {
         
         try checkZipError(status)
         self.archivePointer = try handle.unwrapped()
-        registerProgressCallback()
     }
     
     public init(url: URL, mode: [OpenMode] = [.none]) throws {
@@ -161,7 +161,6 @@ public final class ZipArchive: ZipErrorHandler {
         
         try checkZipError(status)
         self.archivePointer = try handle.unwrapped()
-        registerProgressCallback()
     }
     
     public func close(discardChanged: Bool = false) throws {
@@ -395,12 +394,15 @@ public final class ZipArchive: ZipErrorHandler {
     
     // MARK: - callback
     
-    private func registerProgressCallback() {
+    /// provide updates during zip_close
+    /// - Parameter callback: callback
+    public func registerProgressCallback(_ callback: @escaping (Double) -> ()) {
+        compressionCallback = callback
         let userData = UnsafeMutableRawPointer(mutating: Unmanaged<ZipArchive>.passUnretained(self).toOpaque())
         zip_register_progress_callback_with_state(archivePointer, 0.1, { (archivePtr, progress, udPtr) in
             if let udPtr = udPtr {
                 let archiveUd = Unmanaged<ZipArchive>.fromOpaque(udPtr).takeUnretainedValue()
-                archiveUd.callback?(progress)
+                archiveUd.compressionCallback?(progress)
             }
         }, nil, userData)
     }
