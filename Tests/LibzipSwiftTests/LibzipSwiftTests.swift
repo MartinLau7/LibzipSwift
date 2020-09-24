@@ -1,32 +1,23 @@
-import XCTest
 @testable import LibzipSwift
+import XCTest
 
 final class LibzipSwiftTests: XCTestCase {
-    
     let baseDirectory = URL(fileURLWithPath: #file).deletingLastPathComponent().appendingPathComponent("TestData", isDirectory: true)
     
     var docArchive: String {
-        get {
-            return baseDirectory.appendingPathComponent("doc_archive.zip").path
-        }
+        return baseDirectory.appendingPathComponent("doc_archive.zip").path
     }
     
     var winArchive: String {
-        get {
-            return baseDirectory.appendingPathComponent("win_archive.zip").path
-        }
+        return baseDirectory.appendingPathComponent("win_archive.zip").path
     }
     
     var unixArchive: String {
-        get {
-            return baseDirectory.appendingPathComponent("unix_archive.zip").path
-        }
+        return baseDirectory.appendingPathComponent("unix_archive.zip").path
     }
     
     var encryptArchive: String {
-        get {
-            return baseDirectory.appendingPathComponent("encrypt_archive.zip").path
-        }
+        return baseDirectory.appendingPathComponent("encrypt_archive.zip").path
     }
     
     func testNewArchive() {
@@ -49,7 +40,7 @@ final class LibzipSwiftTests: XCTestCase {
                 print("==> \(pg)%")
             }
         } catch {
-             XCTFail(error.localizedDescription)
+            XCTFail(error.localizedDescription)
         }
     }
     
@@ -71,7 +62,7 @@ final class LibzipSwiftTests: XCTestCase {
             docArchive: ["programmer.png", "繁體中文/時間/", "繁體中文/文本檔案.txt", "简体中文/新建文本文档.txt"],
             winArchive: ["programmer.png", "вｙe вｙЁəiεə.txt", "ㅂㄶㄵㅁㅀもぬに.txt", "简体中文/", "简体中文/新建文本文档.txt", "繁體中文/", "繁體中文/文本檔案.txt", "繁體中文/時間/"],
             unixArchive: ["test.png", "macOS/", "macOS/print.sh", "macOS/卍〆◈(*`ェ´*)/", "English🔣🅿️⌘/", "繁體简体 abc 123▦░▥▨▩┏◈〆卍/"],
-            encryptArchive: ["Test File C.m4a", "Test File A.txt", "Test File B.jpg"]
+            encryptArchive: ["Test File C.m4a", "Test File A.txt", "Test File B.jpg"],
         ]
         for (archive, password) in archives {
             do {
@@ -85,10 +76,10 @@ final class LibzipSwiftTests: XCTestCase {
                 if let entries = try? zipArchive.getEntries() {
                     let expected = expectedDict[archive]
                     let actual = entries.map { $0.fileName }
-                    XCTAssertEqual(actual, expected)
+                    XCTAssertEqual(actual, expected, "\(archive) 文件列表不匹配")
                 }
             } catch {
-                XCTAssert(false, error.localizedDescription)
+                XCTAssert(false, "\(archive) === \(error.localizedDescription)")
             }
         }
     }
@@ -96,6 +87,7 @@ final class LibzipSwiftTests: XCTestCase {
     func testArchiveExtract() {
         let archives = [docArchive: "", winArchive: "", unixArchive: "", encryptArchive: "123"]
         for (archive, password) in archives {
+            print("\(archive)")
             do {
                 let zipArchive = try ZipArchive(path: archive)
                 defer {
@@ -104,13 +96,13 @@ final class LibzipSwiftTests: XCTestCase {
                 if !password.isEmpty {
                     try zipArchive.setDefaultPassword(password)
                 }
-                let extResult = try zipArchive.extractAll(to: FileManager.default.currentDirectoryPath, overwrite: true, { (entryName, entryProgress, totalProgress) -> Bool in
+                let extResult = try zipArchive.extractAll(to: FileManager.default.currentDirectoryPath, overwrite: true) { (entryName, _, totalProgress) -> Bool in
                     print("\(entryName) extracting...\(totalProgress)")
                     return true
-                })
+                }
                 XCTAssertEqual(extResult, true, zipArchive.error!.localizedDescription)
             } catch {
-                XCTAssert(false, error.localizedDescription)
+                XCTAssert(false, "\(archive)  __  \(error.localizedDescription)")
             }
         }
     }
@@ -173,13 +165,49 @@ final class LibzipSwiftTests: XCTestCase {
         }
     }
     
+    func testunxiArchive() {
+        print("\(FileManager.default.currentDirectoryPath)")
+        print("\(baseDirectory.path)")
+        do {
+            let zipArchive = try ZipArchive(path: unixArchive)
+            defer {
+                do {
+                    try zipArchive.close()
+                } catch {
+                    XCTFail(error.localizedDescription)
+                }
+            }
+            // _ = try zipArchive.getEntries()
+            // let items = try zipArchive.getEntries()
+            // print("===\n")
+            // for item in items {
+            //     print("\(item.fileName)")
+            //     if item.fileName == "繁體简体 abc 123▦░▥▨▩┏◈〆卍" {
+            //         print("fuck chen")
+            //     }
+            // }
+            // print("\n===")
+            
+            let extResult = try zipArchive.extractAll(to: baseDirectory.path, overwrite: true) { (entryName, _, totalProgress) -> Bool in
+                print("\(entryName) extracting...\(totalProgress)")
+                return true
+            }
+            XCTAssertEqual(extResult, true, zipArchive.error!.localizedDescription)
+        } catch {
+            XCTFail(error.localizedDescription)
+        }
+        
+        //
+    }
+    
     static var allTests = [
-        ("testIsZipArchive",   testIsZipArchive),
-        ("testNewArchive",     testNewArchive),
-        ("testListEntries",    testListEntries),
+        ("testIsZipArchive", testIsZipArchive),
+        ("testNewArchive", testNewArchive),
+        ("testListEntries", testListEntries),
         ("testArchiveExtract", testArchiveExtract),
-        ("testUpdateEntry",    testUpdateEntry),
-        ("testRemoveEntry",    testRemoveEntry),
-        ("testReameEntry",     testReameEntry),
+        ("testUpdateEntry", testUpdateEntry),
+        ("testRemoveEntry", testRemoveEntry),
+        ("testReameEntry", testReameEntry),
+        ("testunxiArchive", testunxiArchive),
     ]
 }

@@ -1,8 +1,9 @@
-import libzip
 import Foundation
+import libzip
+
+private let buffSize = 10240 * 8
 
 public final class ZipEntry: ZipErrorHandler {
-    
     let archive: ZipArchive
     let stat: zip_stat
     
@@ -18,7 +19,7 @@ public final class ZipEntry: ZipErrorHandler {
     
     public let fileName: String
     
-    private (set) public var rawFileNameData: Data
+    public private(set) var rawFileNameData: Data
     
     public let isDirectory: Bool
     
@@ -47,7 +48,6 @@ public final class ZipEntry: ZipErrorHandler {
     // MARK: - static function
     
     fileprivate struct FileType: RawRepresentable {
-        
         public let rawValue: mode_t
         public init(rawValue: mode_t) {
             self.rawValue = rawValue
@@ -63,9 +63,9 @@ public final class ZipEntry: ZipErrorHandler {
     }
     
     private static func getCompressionlevel(stat: zip_stat) -> CompressionLevel {
-        var level:CompressionLevel = .default
+        var level: CompressionLevel = .default
         if stat.comp_method != 0 {
-            switch (((stat.flags & 0x6) / 2)) {
+            switch (stat.flags & 0x6) / 2 {
                 case 0:
                     level = .default
                 case 1:
@@ -78,22 +78,22 @@ public final class ZipEntry: ZipErrorHandler {
     }
     
     private static func itemFileType(_ attributes: UInt32) -> FileType {
-        return FileType(rawValue: (S_IFMT & mode_t((attributes >> 16))))
+        return FileType(rawValue: S_IFMT & mode_t(attributes >> 16))
     }
     
     private static func itemIsDOSDirectory(_ attributes: UInt32) -> Bool {
-        return 0x01 & (attributes >> 4) != 0;
+        return 0x01 & (attributes >> 4) != 0
     }
     
     private static func itemIsDirectory(_ externalAttributes: ExternalAttributes) -> Bool {
-        if externalAttributes.operatingSystem == .Dos || externalAttributes.operatingSystem == .WINDOWS_NTFS {
+        if externalAttributes.operatingSystem == .dos || externalAttributes.operatingSystem == .windows_NTFS {
             return ZipEntry.itemIsDOSDirectory(externalAttributes.attributes)
         }
         return itemFileType(externalAttributes.attributes) == .DIR
     }
     
     private static func itemPermissions(_ attributes: UInt32) -> mode_t {
-        let permissionsMask = S_IRWXU | S_IRWXG | S_IRWXO;
+        let permissionsMask = S_IRWXU | S_IRWXG | S_IRWXO
         return permissionsMask & mode_t(attributes >> 16)
     }
     
@@ -106,45 +106,44 @@ public final class ZipEntry: ZipErrorHandler {
     public init(archive: ZipArchive, stat: zip_stat) {
         self.archive = archive
         self.stat = stat
-        self.vaild = stat.valid
+        vaild = stat.valid
         
-        self.compressedSize = stat.comp_size
-        self.uncompressedSize = stat.size
-        self.index = stat.index
-        self.CRC = UInt(stat.crc)
+        compressedSize = stat.comp_size
+        uncompressedSize = stat.size
+        index = stat.index
+        CRC = UInt(stat.crc)
         
-        self.modificationDate = Date(timeIntervalSince1970: TimeInterval(stat.mtime))
-        self.compressionMethod = CompressionMethod(rawValue: Int32(stat.comp_method))
-        self.encryptionMethod = EncryptionMethod(rawValue: stat.encryption_method)
-        self.compressionLevel = ZipEntry.getCompressionlevel(stat: stat)
+        modificationDate = Date(timeIntervalSince1970: TimeInterval(stat.mtime))
+        compressionMethod = CompressionMethod(rawValue: Int32(stat.comp_method))
+        encryptionMethod = EncryptionMethod(rawValue: stat.encryption_method)
+        compressionLevel = ZipEntry.getCompressionlevel(stat: stat)
         
         var opsys: UInt8 = 0
         var attributes: UInt32 = 0
         if zip_file_get_external_attributes(archive.archivePointer, stat.index, Condition.original.rawValue, &opsys, &attributes) == ZIP_ER_OK {
-            self.externalAttributes = ExternalAttributes(operatingSystem: ZipOSPlatform(rawValue: opsys), attributes: attributes)
+            externalAttributes = ExternalAttributes(operatingSystem: ZipOSPlatform(rawValue: opsys), attributes: attributes)
         } else {
-            self.externalAttributes = ExternalAttributes(operatingSystem: .Dos, attributes: 0)
+            externalAttributes = ExternalAttributes(operatingSystem: .dos, attributes: 0)
         }
         
-        var posix:UInt16 = 420
         var isSysLink = false
+        var posix: UInt16 = 420
         var name = String(cString: stat.name!, encoding: .utf8)
-        let zipOS = self.externalAttributes.operatingSystem
-        self.rawFileNameData = (name!.data(using: .utf8))!
-        if zipOS == .Dos || zipOS == .WINDOWS_NTFS {
+        let zipOS = externalAttributes.operatingSystem
+        rawFileNameData = (name!.data(using: .utf8))!
+        if zipOS == .dos || zipOS == .windows_NTFS {
             // 自动转换档案名编码
             if let zipFN = zip_get_name(archive.archivePointer, index, ZipEncoding.raw.rawValue) {
-                
-                let nameLen = zipFN.withMemoryRebound(to: Int8.self, capacity: 8, {
-                    return strlen($0)
-                })
+                let nameLen = zipFN.withMemoryRebound(to: Int8.self, capacity: 8) {
+                    strlen($0)
+                }
                 let buff = UnsafeBufferPointer(start: zipFN, count: nameLen)
-                self.rawFileNameData = Data(buffer: buff)
+                rawFileNameData = Data(buffer: buff)
                 #if os(macOS)
                 var convertedString: NSString?
                 _ = NSString.stringEncoding(for: rawFileNameData, encodingOptions: nil, convertedString: &convertedString, usedLossyConversion: nil)
                 if let cs = convertedString {
-                    name =  cs as String
+                    name = cs as String
                 }
                 #else
                 if let cs = String(data: rawFileNameData, encoding: .utf8) {
@@ -153,14 +152,14 @@ public final class ZipEntry: ZipErrorHandler {
                 #endif
             }
         }
-        if zipOS == .UNIX || zipOS == .OSX || zipOS == .MACINTOSH {
-            posix = UInt16(ZipEntry.itemPermissions(self.externalAttributes.attributes))
-            isSysLink = ZipEntry.itemIsSymbolicLink(self.externalAttributes.attributes)
+        if zipOS == .unix || zipOS == .osx || zipOS == .macintosh {
+            posix = UInt16(ZipEntry.itemPermissions(externalAttributes.attributes))
+            isSysLink = ZipEntry.itemIsSymbolicLink(externalAttributes.attributes)
         }
-        self.isDirectory = attributes > 0 ? ZipEntry.itemIsDirectory(self.externalAttributes) : (name!.last == "/")
-        self.isSymbolicLink = isSysLink
-        self.posixPermission = posix
-        self.fileName = name!
+        isDirectory = attributes > 0 ? ZipEntry.itemIsDirectory(externalAttributes) : (name!.last == "/")
+        isSymbolicLink = isSysLink
+        posixPermission = posix
+        fileName = name!
     }
     
     // MARK: - attributes
@@ -193,7 +192,7 @@ public final class ZipEntry: ZipErrorHandler {
     /// - Parameter name: the new name
     public func rename(name: String) -> Bool {
         return name.withCString { name in
-            return checkIsSuccess(zip_file_rename(archive.archivePointer, index, name, ZIP_FL_ENC_UTF_8))
+            checkIsSuccess(zip_file_rename(archive.archivePointer, index, name, ZIP_FL_ENC_UTF_8))
         }
     }
     
@@ -214,7 +213,7 @@ public final class ZipEntry: ZipErrorHandler {
     }
     
     // MARK: - discard change
-
+    
     /// undo changes to file in zip archive
     public func discardChange() -> Bool {
         return checkIsSuccess(zip_unchange(archive.archivePointer, index))
@@ -244,10 +243,9 @@ public final class ZipEntry: ZipErrorHandler {
         
         var readNum: Int64 = 0
         var readSize: Int64 = 0
-        let count: Int = 1024*100
-        var buffer = [UInt8](repeating: 0, count: count)
+        var buffer = [UInt8](repeating: 0, count: buffSize)
         while true {
-            readNum = try zipCast(checkZipResult(zip_fread(zipFileHandler, &buffer, zipCast(count))))
+            readNum = try zipCast(checkZipResult(zip_fread(zipFileHandler, &buffer, zipCast(buffSize))))
             if readNum <= 0 {
                 break
             }
@@ -273,11 +271,17 @@ public final class ZipEntry: ZipErrorHandler {
             }
         }
         
-        if FileManager.default.fileExists(atPath: path)  && !overwrite {
+        if FileManager.default.fileExists(atPath: path), !overwrite {
             return false
         }
         if isDirectory {
-            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [FileAttributeKey.modificationDate: self.modificationDate])
+            #if os(Linux)
+            // FIXME: set attributes crash on Linux
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+            try? FileManager.default.setAttributes([FileAttributeKey.modificationDate: modificationDate], ofItemAtPath: path)
+            #else
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [FileAttributeKey.modificationDate: modificationDate])
+            #endif
             if let pg = closure {
                 if !pg(fileName, 1.0) {
                     return false
@@ -287,9 +291,8 @@ public final class ZipEntry: ZipErrorHandler {
         } else {
             var readNum: Int64 = 0
             var readSize: Int64 = 0
-            let count: Int = 1024*100
             let saveUrl = URL(fileURLWithPath: path)
-            var buffer = [UInt8](repeating: 0, count: count)
+            var buffer = [UInt8](repeating: 0, count: buffSize)
             let zipHandler = try openEntry(password: password, mode: .none)
             defer {
                 _ = checkIsSuccess(zip_fclose(zipHandler))
@@ -307,7 +310,7 @@ public final class ZipEntry: ZipErrorHandler {
             }
             fileHandler.seek(toFileOffset: 0)
             while true {
-                readNum = try zipCast(checkZipResult(zip_fread(zipHandler, &buffer, zipCast(count))))
+                readNum = try zipCast(checkZipResult(zip_fread(zipHandler, &buffer, zipCast(buffSize))))
                 if readNum <= 0 {
                     break
                 }
@@ -325,9 +328,16 @@ public final class ZipEntry: ZipErrorHandler {
                 return false
             }
             
-            let att: [FileAttributeKey : Any] = [FileAttributeKey.posixPermissions: posixPermission,
-                                                 FileAttributeKey.modificationDate: modificationDate]
+            #if !os(Linux)
+            let att: [FileAttributeKey: Any] = [FileAttributeKey.posixPermissions: posixPermission,
+                                                FileAttributeKey.modificationDate: modificationDate]
             try FileManager.default.setAttributes(att, ofItemAtPath: path)
+            #else
+            let pox = mode_t(externalAttributes.attributes >> 16)
+            _ = path.withCString { pathPointer in
+                chmod(pathPointer, pox) == 0
+            }
+            #endif
             return true
         }
     }
@@ -335,5 +345,4 @@ public final class ZipEntry: ZipErrorHandler {
     public func delete() -> Bool {
         return archive.deleteEntry(index: index)
     }
-    
 }

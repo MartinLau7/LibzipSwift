@@ -90,12 +90,12 @@ public struct ZipOSPlatform: OptionSet {
         self.rawValue = rawValue
     }
     
-    public static let Dos               = ZipOSPlatform(rawValue: 0x00)
-    public static let UNIX              = ZipOSPlatform(rawValue: 0x03)
-    public static let OS2              = ZipOSPlatform(rawValue: 0x06)
-    public static let MACINTOSH         = ZipOSPlatform(rawValue: 0x07)
-    public static let WINDOWS_NTFS      = ZipOSPlatform(rawValue: 0x0a)
-    public static let OSX              = ZipOSPlatform(rawValue: 0x013)
+    public static let dos               = ZipOSPlatform([])
+    public static let unix              = ZipOSPlatform(rawValue: 0x03)
+    public static let os2              = ZipOSPlatform(rawValue: 0x06)
+    public static let macintosh         = ZipOSPlatform(rawValue: 0x07)
+    public static let windows_NTFS      = ZipOSPlatform(rawValue: 0x0a)
+    public static let osx              = ZipOSPlatform(rawValue: 0x013)
 }
 
 // MARK: - internal Struct
