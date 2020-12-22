@@ -74,7 +74,7 @@ print("\(Handle errors here)")
 ### TODO
 
 - [x] ~~完整的压缩函式~~
-- [ ] 对iOS 支持的完善
+- [x] 对iOS 支持的完善
 - [ ] 对 unix 上的zip 归档保留更多属性
 - [ ] 完善单元测试
 - [ ] more
