@@ -78,7 +78,7 @@ When you want to undo the changes, you can add discardChanged: false to the clos
 
 - [x] ~~Complete compression function~~
 
-- [ ] Improved iOS support
+- [x] Improved iOS support
 
 - [ ] Preserve more attributes for zip archives on unix
 

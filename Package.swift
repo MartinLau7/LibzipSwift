@@ -5,26 +5,10 @@ import PackageDescription
 
 // MARK: - Common
 
-private func ruleSets<Element>(_ items: [[Element]]) -> [Element] {
-    return items.flatMap { $0 }
-}
-
-private func always<Element>(use items: [Element]) -> [Element] {
-    return items
-}
-
-private func when<Element>(_ condition: Bool, use items: [Element]) -> [Element] {
-    if condition {
-        return items
-    } else {
-        return []
-    }
-}
-
 private enum OSPlatform: Equatable {
     case darwin // macOS, iOS, tvOS, watchOS
     case linux // ubuntu(16/18/20) / Amazon Linux 2
-    case windows // windows 10²
+    case windows // windows 10
     
     #if os(macOS)
     static let current = OSPlatform.darwin
@@ -35,12 +19,25 @@ private enum OSPlatform: Equatable {
     #endif
 }
 
+private func ruleSets<Element>(_ items: [[Element]]) -> [Element] {
+    return items.flatMap { $0 }
+}
+
+private func releDeclaration<Element>(_ items: [Element], when platforms: [OSPlatform]) -> [Element] {
+    if !platforms.contains(OSPlatform.current) {
+        return []
+    }
+    return items
+}
+
+
 // MARK: - Package Config
 
 let package = Package(
     name: "LibzipSwift",
     platforms: [
         .macOS(.v10_13),
+        .iOS(.v13)
     ],
     products: [
         .library(name: "LibzipSwift", targets: ["LibzipSwift"]),
@@ -58,51 +55,63 @@ let package = Package(
             dependencies: [],
             path: "Sources/libzip",
             exclude: ruleSets([
-                // always excluded items
-                always(use: [
-                    // Exclude XZ compression
-                    "src/zip_algorithm_xz.c",
-                    
-                    // Exclude non-CommonCrypto encryption
+                [
+                    // HAVE_MBEDTLS HAVE_GNUTLS
                     "src/zip_crypto_mbedtls.c",
                     "src/zip_crypto_gnutls.c",
+                ],
+                releDeclaration([
+                    // HAVE_WINDOWS_CRYPTO
                     "src/zip_crypto_win.c",
                     
-                    // Exclude Windows random
-                    "src/zip_random_win32.c",
+                    // WIN32
                     "src/zip_random_uwp.c",
-                    
-                    // Exclude Windows utilities
-                    "src/zip_source_win32handle.c",
-                    "src/zip_source_win32utf8.c",
-                    "src/zip_source_win32a.c",
-                    "src/zip_source_win32w.c",
-                ]),
-                when(OSPlatform.current == .darwin, use: [
-                    "src/zip_crypto_openssl.c",
-                ]),
-                when(OSPlatform.current == .linux, use: [
+                    "src/zip_source_file_win32.c",
+                    "src/zip_source_file_win32_named.c",
+                    "src/zip_source_file_win32_utf16.c",
+                    "src/zip_source_file_win32_utf8.c",
+                    "src/zip_source_file_win32_ansi.c",
+                    "src/zip_random_win32.c"
+                ], when: [.linux, .darwin]),
+                
+                releDeclaration([
+                    // HAVE_COMMONCRYPTO
                     "src/zip_crypto_commoncrypto.c",
-                ]),
+                ], when: [.linux]),
+                
+                releDeclaration([
+                    // HAVE_OPENSSL
+                    "src/zip_crypto_openssl.c",
+                    
+                    // HAVE_LIBLZMA
+                    // LZMA compression requires LZMA SDK
+                    "src/zip_algorithm_xz.c",
+                ], when: [.darwin]),
             ]),
             sources: [
                 "src",
+                ""
             ],
             publicHeadersPath: "include",
-            cSettings: [
-                .define("HAVE_CONFIG_H"),
-                .headerSearchPath("private_include"),
-            ],
-            linkerSettings: ruleSets([
-                always(use: [
-                    .linkedLibrary("z"),
-                    .linkedLibrary("bz2"),
-                ]),
-                when(OSPlatform.current == .linux, use: [
-                    .linkedLibrary("ssl"),
-                    .linkedLibrary("crypto")
-                ]),
-            ])
+            cSettings: ruleSets([
+                [
+                    .define("HAVE_CONFIG_H"),
+                ],
+                releDeclaration([
+                    .headerSearchPath("private_include/darwin"),
+                ], when: [.darwin]),
+                releDeclaration([
+                    .headerSearchPath("private_include/linux"),
+                ], when: [.linux]),
+            ]),
+            linkerSettings: [
+                .linkedLibrary("z"),
+                .linkedLibrary("bz2"),
+                
+                .linkedLibrary("lzma", .when(platforms: [.linux])),
+                .linkedLibrary("ssl", .when(platforms: [.linux])),
+                .linkedLibrary("crypto", .when(platforms: [.linux])),
+            ]
         ),
         .target(
             name: "LibzipSwift",

@@ -52,7 +52,7 @@ _zip_crypto_aes_new(const zip_uint8_t *key, zip_uint16_t key_size, zip_error_t *
 	zip_error_set(error, ZIP_ER_MEMORY, 0);
 	return NULL;
     }
-    
+
     AES_set_encrypt_key(key, key_size, aes);
 
     return aes;

@@ -1,6 +1,6 @@
 /*
-  zip_crypto_gnutls.h -- definitions for GnuTLS wrapper.
-  Copyright (C) 2018-2019 Dieter Baron and Thomas Klausner
+  zip_source_file_win32_ansi.c -- source for Windows file opened by ANSI name
+  Copyright (C) 1999-2020 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <libzip@nih.at>
@@ -31,38 +31,51 @@
   IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef HAD_ZIP_CRYPTO_GNUTLS_H
-#define HAD_ZIP_CRYPTO_GNUTLS_H
+#include "zip_source_file_win32.h"
 
-#define HAVE_SECURE_RANDOM
+static char *ansi_allocate_tempname(const char *name, size_t extra_chars, size_t *lengthp);
+static void ansi_make_tempname(char *buf, size_t len, const char *name, zip_uint32_t i);
 
-#include <nettle/aes.h>
-#include <nettle/pbkdf2.h>
+zip_win32_file_operations_t ops_ansi = {
+    ansi_allocate_tempname,
+    CreateFileA,
+    DeleteFileA,
+    GetFileAttributesA,
+    GetFileAttributesExA,
+    ansi_make_tempname,
+    MoveFileExA,
+    SetFileAttributesA,
+    strdup
+};
 
-#include <gnutls/gnutls.h>
+ZIP_EXTERN zip_source_t *
+zip_source_win32a(zip_t *za, const char *fname, zip_uint64_t start, zip_int64_t len) {
+    if (za == NULL)
+    return NULL;
 
-#include <gnutls/crypto.h>
+    return zip_source_win32a_create(fname, start, len, &za->error);
+}
 
-typedef struct {
-    union {
-	struct aes128_ctx ctx_128;
-	struct aes192_ctx ctx_192;
-	struct aes256_ctx ctx_256;
-    } ctx;
-    zip_uint16_t key_size;
-} _zip_crypto_aes_t;
 
-#define _zip_crypto_hmac_t gnutls_hmac_hd_t
+ZIP_EXTERN zip_source_t *
+zip_source_win32a_create(const char *fname, zip_uint64_t start, zip_int64_t length, zip_error_t *error) {
+    if (fname == NULL || length < -1) {
+    zip_error_set(error, ZIP_ER_INVAL, 0);
+    return NULL;
+    }
 
-void _zip_crypto_aes_free(_zip_crypto_aes_t *aes);
-bool _zip_crypto_aes_encrypt_block(_zip_crypto_aes_t *aes, const zip_uint8_t *in, zip_uint8_t *out);
-_zip_crypto_aes_t *_zip_crypto_aes_new(const zip_uint8_t *key, zip_uint16_t key_size, zip_error_t *error);
+    return zip_source_file_common_new(fname, NULL, start, length, NULL, &_zip_source_file_win32_named_ops, &ops_ansi, error);
+}
 
-#define _zip_crypto_hmac(hmac, data, length) (gnutls_hmac(*(hmac), (data), (length)) == 0)
-void _zip_crypto_hmac_free(_zip_crypto_hmac_t *hmac);
-_zip_crypto_hmac_t *_zip_crypto_hmac_new(const zip_uint8_t *secret, zip_uint64_t secret_length, zip_error_t *error);
-#define _zip_crypto_hmac_output(hmac, data) (gnutls_hmac_output(*(hmac), (data)), true)
 
-#define _zip_crypto_pbkdf2(key, key_length, salt, salt_length, iterations, output, output_length) (pbkdf2_hmac_sha1((key_length), (key), (iterations), (salt_length), (salt), (output_length), (output)), true)
+static char *
+ansi_allocate_tempname(const char *name, size_t extra_chars, size_t *lengthp) {
+    *lengthp = strlen(name) + extra_chars;
+    return (char *)malloc(*lengthp);
+}
 
-#endif /*  HAD_ZIP_CRYPTO_GNUTLS_H */
+
+static void
+ansi_make_tempname(char *buf, size_t len, const char *name, zip_uint32_t i) {
+    snprintf(buf, len, "%s.%08x", name, i);
+}
