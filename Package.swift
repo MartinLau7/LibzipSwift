@@ -37,6 +37,7 @@ let package = Package(
     name: "LibzipSwift",
     platforms: [
         .macOS(.v10_13),
+        .iOS(.v13)
     ],
     products: [
         .library(name: "LibzipSwift", targets: ["LibzipSwift"]),
