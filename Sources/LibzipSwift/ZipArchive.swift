@@ -10,6 +10,8 @@ import libzip
 
 public final class ZipArchive: ZipErrorHandler {
     private var compressionCallback: ((Double) -> Void)?
+    private var compressionMethod: CompressionMethod = .default
+    private var compressionLevel: CompressionLevel = .fastest
     
     internal var archivePointer: OpaquePointer!
     
@@ -305,6 +307,7 @@ public final class ZipArchive: ZipErrorHandler {
                     var external_fa = entry.externalAttributes.attributes
                     external_fa |= permissionsMask
                     try entry.setExternalAttributes(operatingSystem: .unix, attributes: external_fa)
+                    try entry.setCompression(method: compressionMethod, flags: compressionLevel)
                 }
             }
             return result
@@ -351,6 +354,11 @@ public final class ZipArchive: ZipErrorHandler {
             }
         }
         return false
+    }
+    
+    public func setCompression(cm: CompressionMethod, cl: CompressionLevel) {
+        compressionMethod = cm
+        compressionLevel = cl
     }
     
     /// extract all entries to folder.

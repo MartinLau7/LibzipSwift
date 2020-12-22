@@ -25,6 +25,7 @@ public struct CompressionMethod: RawRepresentable {
     
     public static let `default` = CompressionMethod(rawValue: ZIP_CM_DEFAULT)
     public static let store = CompressionMethod(rawValue: ZIP_CM_STORE)
+    public static let bzip2 = CompressionMethod(rawValue: ZIP_CM_BZIP2)
     public static let deflate = CompressionMethod(rawValue: ZIP_CM_DEFLATE)
     public static let deflate64 = CompressionMethod(rawValue: ZIP_CM_DEFLATE64)
 }
