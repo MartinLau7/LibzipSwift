@@ -15,13 +15,19 @@
 
 /* #undef ZIP_STATIC */
 
+#if __linux__
 #define _Nullable
 #define _Nonnull
+#endif
 
 #if !defined(__STDC_FORMAT_MACROS)
 #define __STDC_FORMAT_MACROS 1
 #endif
 #include <inttypes.h>
+
+#if __linux__
+#include <sys/types.h>
+#endif
 
 typedef int8_t zip_int8_t;
 typedef uint8_t zip_uint8_t;
