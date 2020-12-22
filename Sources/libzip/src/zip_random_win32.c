@@ -32,11 +32,12 @@
 */
 
 #include "zipint.h"
-#include "zipwin32.h"
 
 #ifdef HAVE_CRYPTO
 #include "zip_crypto.h"
 #endif
+
+#include <windows.h>
 
 #ifndef HAVE_SECURE_RANDOM
 
@@ -68,11 +69,11 @@ zip_random_uint32(void) {
     zip_uint32_t value;
 
     if (zip_secure_random((zip_uint8_t *)&value, sizeof(value))) {
-        return value;
+	return value;
     }
 
     if (!seeded) {
-        srand((unsigned int)time(NULL));
+	srand((unsigned int)time(NULL));
     }
 
     return (zip_uint32_t)rand();

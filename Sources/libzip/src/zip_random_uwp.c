@@ -43,8 +43,6 @@
 #include <ntstatus.h>
 #include <windows.h>
 
-#include "zipwin32.h"
-
 ZIP_EXTERN bool
 zip_secure_random(zip_uint8_t *buffer, zip_uint16_t length) {
     BCRYPT_ALG_HANDLE hAlg = NULL;
@@ -72,11 +70,11 @@ zip_random_uint32(void) {
     zip_uint32_t value;
 
     if (zip_secure_random((zip_uint8_t *)&value, sizeof(value))) {
-        return value;
+	return value;
     }
 
     if (!seeded) {
-        srand((unsigned int)time(NULL));
+	srand((unsigned int)time(NULL));
     }
 
     return (zip_uint32_t)rand();
