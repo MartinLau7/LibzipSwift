@@ -10,7 +10,7 @@ import libzip
 
 public final class ZipArchive: ZipErrorHandler {
     private var compressionCallback: ((Double) -> Void)?
-    private var compressionMethod: CompressionMethod = .default
+    private var compressionMethod: CompressionMethod = .deflate
     private var compressionLevel: CompressionLevel = .fastest
     
     internal var archivePointer: OpaquePointer!
@@ -306,8 +306,8 @@ public final class ZipArchive: ZipErrorHandler {
                 if let entry = readEntry(from: UInt64(result)) {
                     var external_fa = entry.externalAttributes.attributes
                     external_fa |= permissionsMask
-                    try entry.setExternalAttributes(operatingSystem: .unix, attributes: external_fa)
                     try entry.setCompression(method: compressionMethod, flags: compressionLevel)
+                    try entry.setExternalAttributes(operatingSystem: .unix, attributes: external_fa)
                 }
             }
             return result
